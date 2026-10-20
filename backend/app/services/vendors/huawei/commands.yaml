@@ -1,0 +1,1209 @@
+create_vlan:
+  primary:
+    block:
+      - "system-view"
+      - "vlan {vlan_id}"
+      - "description {name}"
+      - "quit"
+      - "commit"
+      - "quit"
+  alternatives:
+    - triggered_by_error: '\]commit\r?\n\s*\^\r?\nError: Unrecognized command'
+      block:
+        - "system-view"
+        - "vlan {vlan_id}"
+        - "description {name}"
+        - "quit"
+        - "quit"
+
+delete_vlan:
+  primary:
+    block:
+      - "system-view"
+      - "undo vlan {vlan_id}"
+      - "commit"
+      - "quit"
+  alternatives:
+    - triggered_by_error: '\]commit\r?\n\s*\^\r?\nError: Unrecognized command'
+      block:
+        - "system-view"
+        - "undo vlan {vlan_id}"
+        - "quit"
+
+update_vlan:
+  primary:
+    block:
+      - "system-view"
+      - "vlan {vlan_id}"
+      - "description {name}"
+      - "quit"
+      - "commit"
+      - "quit"
+  alternatives:
+    - triggered_by_error: '\]commit\r?\n\s*\^\r?\nError: Unrecognized command'
+      block:
+        - "system-view"
+        - "vlan {vlan_id}"
+        - "description {name}"
+        - "quit"
+        - "quit"
+
+save_config:
+  success_pattern: 'Save the configuration successfully'
+  primary:
+    block: ["save", "y"]
+  alternatives:
+    - triggered_by_error: '(?i)unrecognized command|wrong parameter|invalid file name|did not confirm the operation'
+      block: ["save force"]
+
+list_vlans:
+  primary:
+    commands: ["display vlan"]
+
+list_ports:
+  primary:
+    commands:
+      - "display interface brief"
+      - "display interface description"
+      - "display port vlan"
+      - "display current-configuration interface"
+
+_INTERFACE_WRONG_PARAM: &interface_wrong_param 'interface \S+\r?\n\s*\^\r?\nError: Wrong parameter found'
+
+update_port_description:
+  set:
+    primary:
+      block:
+        - "system-view"
+        - "interface {interface}"
+        - "description {description}"
+        - "commit"
+        - "quit"
+        - "quit"
+    alternatives:
+      - triggered_by_error: *interface_wrong_param
+        block:
+          - "system-view"
+          - "interface {interface_full}"
+          - "description {description}"
+          - "quit"
+          - "quit"
+      - triggered_by_error: '\]commit\r?\n\s*\^\r?\nError: Unrecognized command'
+        block:
+          - "system-view"
+          - "interface {interface}"
+          - "description {description}"
+          - "quit"
+          - "quit"
+  clear:
+    primary:
+      block:
+        - "system-view"
+        - "interface {interface}"
+        - "undo description"
+        - "commit"
+        - "quit"
+        - "quit"
+    alternatives:
+      - triggered_by_error: *interface_wrong_param
+        block:
+          - "system-view"
+          - "interface {interface_full}"
+          - "undo description"
+          - "quit"
+          - "quit"
+      - triggered_by_error: '\]commit\r?\n\s*\^\r?\nError: Unrecognized command'
+        block:
+          - "system-view"
+          - "interface {interface}"
+          - "undo description"
+          - "quit"
+          - "quit"
+
+set_port_admin_state:
+  enabled:
+    primary:
+      block:
+        - "system-view"
+        - "interface {interface}"
+        - "undo shutdown"
+        - "commit"
+        - "quit"
+        - "quit"
+    alternatives:
+      - triggered_by_error: *interface_wrong_param
+        block:
+          - "system-view"
+          - "interface {interface_full}"
+          - "undo shutdown"
+          - "quit"
+          - "quit"
+      - triggered_by_error: '\]commit\r?\n\s*\^\r?\nError: Unrecognized command'
+        block:
+          - "system-view"
+          - "interface {interface}"
+          - "undo shutdown"
+          - "quit"
+          - "quit"
+  disabled:
+    primary:
+      block:
+        - "system-view"
+        - "interface {interface}"
+        - "shutdown"
+        - "commit"
+        - "quit"
+        - "quit"
+    alternatives:
+      - triggered_by_error: *interface_wrong_param
+        block:
+          - "system-view"
+          - "interface {interface_full}"
+          - "shutdown"
+          - "quit"
+          - "quit"
+      - triggered_by_error: '\]commit\r?\n\s*\^\r?\nError: Unrecognized command'
+        block:
+          - "system-view"
+          - "interface {interface}"
+          - "shutdown"
+          - "quit"
+          - "quit"
+
+set_port_access_vlan:
+  primary:
+    block:
+      - "system-view"
+      - "interface {interface}"
+      - "port default vlan {vlan_id}"
+      - "commit"
+      - "quit"
+      - "quit"
+  alternatives:
+    - triggered_by_error: *interface_wrong_param
+      block:
+        - "system-view"
+        - "interface {interface_full}"
+        - "port default vlan {vlan_id}"
+        - "quit"
+        - "quit"
+    - triggered_by_error: '\]commit\r?\n\s*\^\r?\nError: Unrecognized command'
+      block:
+        - "system-view"
+        - "interface {interface}"
+        - "port default vlan {vlan_id}"
+        - "quit"
+        - "quit"
+
+set_trunk_pvid_vlan:
+  primary:
+    block:
+      - "system-view"
+      - "interface {interface}"
+      - "port trunk pvid vlan {vlan_id}"
+      - "commit"
+      - "quit"
+      - "quit"
+  alternatives:
+    - triggered_by_error: *interface_wrong_param
+      block:
+        - "system-view"
+        - "interface {interface_full}"
+        - "port trunk pvid vlan {vlan_id}"
+        - "quit"
+        - "quit"
+    - triggered_by_error: '\]commit\r?\n\s*\^\r?\nError: Unrecognized command'
+      block:
+        - "system-view"
+        - "interface {interface}"
+        - "port trunk pvid vlan {vlan_id}"
+        - "quit"
+        - "quit"
+
+set_trunk_allowed_vlans:
+  primary:
+    block:
+      - "system-view"
+      - "interface {interface}"
+      - "undo port trunk allow-pass vlan all"
+      - "port trunk allow-pass vlan {allowed_vlans}"
+      - "commit"
+      - "quit"
+      - "quit"
+  alternatives:
+    - triggered_by_error: *interface_wrong_param
+      block:
+        - "system-view"
+        - "interface {interface_full}"
+        - "undo port trunk allow-pass vlan all"
+        - "port trunk allow-pass vlan {allowed_vlans}"
+        - "quit"
+        - "quit"
+    - triggered_by_error: '\]commit\r?\n\s*\^\r?\nError: Unrecognized command'
+      block:
+        - "system-view"
+        - "interface {interface}"
+        - "undo port trunk allow-pass vlan all"
+        - "port trunk allow-pass vlan {allowed_vlans}"
+        - "quit"
+        - "quit"
+
+set_trunk_vlans_delta:
+  add:
+    primary:
+      block:
+        - "system-view"
+        - "interface {interface}"
+        - "{add_lines}"
+        - "commit"
+        - "quit"
+        - "quit"
+    alternatives:
+      - triggered_by_error: *interface_wrong_param
+        block:
+          - "system-view"
+          - "interface {interface_full}"
+          - "{add_lines}"
+          - "quit"
+          - "quit"
+      - triggered_by_error: '\]commit\r?\n\s*\^\r?\nError: Unrecognized command'
+        block:
+          - "system-view"
+          - "interface {interface}"
+          - "{add_lines}"
+          - "quit"
+          - "quit"
+  remove:
+    primary:
+      block:
+        - "system-view"
+        - "interface {interface}"
+        - "{remove_lines}"
+        - "commit"
+        - "quit"
+        - "quit"
+    alternatives:
+      - triggered_by_error: *interface_wrong_param
+        block:
+          - "system-view"
+          - "interface {interface_full}"
+          - "{remove_lines}"
+          - "quit"
+          - "quit"
+      - triggered_by_error: '\]commit\r?\n\s*\^\r?\nError: Unrecognized command'
+        block:
+          - "system-view"
+          - "interface {interface}"
+          - "{remove_lines}"
+          - "quit"
+          - "quit"
+  both:
+    primary:
+      block:
+        - "system-view"
+        - "interface {interface}"
+        - "{add_lines}"
+        - "{remove_lines}"
+        - "commit"
+        - "quit"
+        - "quit"
+    alternatives:
+      - triggered_by_error: *interface_wrong_param
+        block:
+          - "system-view"
+          - "interface {interface_full}"
+          - "{add_lines}"
+          - "{remove_lines}"
+          - "quit"
+          - "quit"
+      - triggered_by_error: '\]commit\r?\n\s*\^\r?\nError: Unrecognized command'
+        block:
+          - "system-view"
+          - "interface {interface}"
+          - "{add_lines}"
+          - "{remove_lines}"
+          - "quit"
+          - "quit"
+
+_TRUNK_CONFIG_REPEAT: &trunk_config_repeat
+  over: "trunk_lines"
+  line: "{item}"
+
+set_trunk_config_delta:
+  primary:
+    block:
+      - "system-view"
+      - "interface {interface}"
+    repeat: *trunk_config_repeat
+    trailer: ["commit", "quit", "quit"]
+  alternatives:
+    - triggered_by_error: *interface_wrong_param
+      block:
+        - "system-view"
+        - "interface {interface_full}"
+      repeat: *trunk_config_repeat
+      trailer: ["quit", "quit"]
+    - triggered_by_error: '\]commit\r?\n\s*\^\r?\nError: Unrecognized command'
+      block:
+        - "system-view"
+        - "interface {interface}"
+      repeat: *trunk_config_repeat
+      trailer: ["quit", "quit"]
+
+set_port_poe:
+  enabled:
+    primary:
+      block:
+        - "system-view"
+        - "interface {interface}"
+        - "poe enable"
+        - "commit"
+        - "quit"
+        - "quit"
+    alternatives:
+      - triggered_by_error: *interface_wrong_param
+        block:
+          - "system-view"
+          - "interface {interface_full}"
+          - "poe enable"
+          - "quit"
+          - "quit"
+      - triggered_by_error: '\]commit\r?\n\s*\^\r?\nError: Unrecognized command'
+        block:
+          - "system-view"
+          - "interface {interface}"
+          - "poe enable"
+          - "quit"
+          - "quit"
+  disabled:
+    primary:
+      block:
+        - "system-view"
+        - "interface {interface}"
+        - "poe disable"
+        - "commit"
+        - "quit"
+        - "quit"
+    alternatives:
+      - triggered_by_error: *interface_wrong_param
+        block:
+          - "system-view"
+          - "interface {interface_full}"
+          - "poe disable"
+          - "quit"
+          - "quit"
+      - triggered_by_error: '\]commit\r?\n\s*\^\r?\nError: Unrecognized command'
+        block:
+          - "system-view"
+          - "interface {interface}"
+          - "poe disable"
+          - "quit"
+          - "quit"
+
+set_storm_control:
+  enabled:
+    primary:
+      block:
+        - "system-view"
+        - "interface {interface}"
+        - "storm control broadcast min-rate percent {threshold} max-rate percent {threshold}"
+        - "storm control multicast min-rate percent {threshold} max-rate percent {threshold}"
+      repeat:
+        over: "action_lines"
+        line: "{item}"
+      trailer: ["commit", "quit", "quit"]
+    alternatives:
+      - triggered_by_error: *interface_wrong_param
+        block:
+          - "system-view"
+          - "interface {interface_full}"
+          - "storm control broadcast min-rate percent {threshold} max-rate percent {threshold}"
+          - "storm control multicast min-rate percent {threshold} max-rate percent {threshold}"
+        repeat:
+          over: "action_lines"
+          line: "{item}"
+        trailer: ["quit", "quit"]
+      - triggered_by_error: 'storm control[^\n]*\r?\n\s*\^\r?\nError: Unrecognized command'
+        block:
+          - "system-view"
+          - "interface {interface_full}"
+          - "storm-control broadcast min-rate percent {threshold} max-rate percent {threshold}"
+          - "storm-control multicast min-rate percent {threshold} max-rate percent {threshold}"
+        repeat:
+          over: "action_lines_dash"
+          line: "{item}"
+        trailer: ["quit", "quit"]
+      - triggered_by_error: '\]commit\r?\n\s*\^\r?\nError: Unrecognized command'
+        block:
+          - "system-view"
+          - "interface {interface}"
+          - "storm control broadcast min-rate percent {threshold} max-rate percent {threshold}"
+          - "storm control multicast min-rate percent {threshold} max-rate percent {threshold}"
+        repeat:
+          over: "action_lines"
+          line: "{item}"
+        trailer: ["quit", "quit"]
+  disabled:
+    primary:
+      block:
+        - "system-view"
+        - "interface {interface}"
+        - "undo storm control broadcast"
+        - "undo storm control multicast"
+        - "undo storm control action"
+        - "undo storm control enable trap"
+        - "commit"
+        - "quit"
+        - "quit"
+    alternatives:
+      - triggered_by_error: *interface_wrong_param
+        block:
+          - "system-view"
+          - "interface {interface_full}"
+          - "undo storm control broadcast"
+          - "undo storm control multicast"
+          - "undo storm control action"
+          - "undo storm control enable trap"
+          - "quit"
+          - "quit"
+      - triggered_by_error: 'storm control[^\n]*\r?\n\s*\^\r?\nError: Unrecognized command'
+        block:
+          - "system-view"
+          - "interface {interface_full}"
+          - "undo storm-control broadcast"
+          - "undo storm-control multicast"
+          - "undo storm-control action"
+          - "undo storm-control enable trap"
+          - "quit"
+          - "quit"
+      - triggered_by_error: '\]commit\r?\n\s*\^\r?\nError: Unrecognized command'
+        block:
+          - "system-view"
+          - "interface {interface}"
+          - "undo storm control broadcast"
+          - "undo storm control multicast"
+          - "undo storm control action"
+          - "undo storm control enable trap"
+          - "quit"
+          - "quit"
+
+reset_port:
+  primary:
+    block:
+      - "system-view"
+      - "clear configuration interface {interface}"
+      - "y"
+      - "quit"
+  alternatives:
+    - triggered_by_error: 'clear configuration interface \S+\r?\n\s*\^\r?\nError: Wrong parameter found'
+      block:
+        - "system-view"
+        - "clear configuration interface {interface_full}"
+        - "y"
+        - "quit"
+
+set_access_mode:
+  con_confirmacion:
+    primary:
+      block:
+        - "system-view"
+        - "interface {interface}"
+        - "port link-type access"
+        - "y"
+        - "port default vlan {vlan_id}"
+        - "commit"
+        - "quit"
+        - "quit"
+    alternatives:
+      - triggered_by_error: '\]y\r?\n\s*\^\r?\nError: Unrecognized command'
+        block:
+          - "system-view"
+          - "interface {interface}"
+          - "port link-type access"
+          - "port default vlan {vlan_id}"
+          - "commit"
+          - "quit"
+          - "quit"
+      - triggered_by_error: *interface_wrong_param
+        block:
+          - "system-view"
+          - "interface {interface_full}"
+          - "port link-type access"
+          - "y"
+          - "port default vlan {vlan_id}"
+          - "quit"
+          - "quit"
+      - triggered_by_error: '\]commit\r?\n\s*\^\r?\nError: Unrecognized command'
+        block:
+          - "system-view"
+          - "interface {interface}"
+          - "port link-type access"
+          - "y"
+          - "port default vlan {vlan_id}"
+          - "quit"
+          - "quit"
+  sin_confirmacion:
+    primary:
+      block:
+        - "system-view"
+        - "interface {interface}"
+        - "port link-type access"
+        - "port default vlan {vlan_id}"
+        - "commit"
+        - "quit"
+        - "quit"
+    alternatives:
+      - triggered_by_error: *interface_wrong_param
+        block:
+          - "system-view"
+          - "interface {interface_full}"
+          - "port link-type access"
+          - "port default vlan {vlan_id}"
+          - "quit"
+          - "quit"
+      - triggered_by_error: '\]commit\r?\n\s*\^\r?\nError: Unrecognized command'
+        block:
+          - "system-view"
+          - "interface {interface}"
+          - "port link-type access"
+          - "port default vlan {vlan_id}"
+          - "quit"
+          - "quit"
+
+set_trunk_mode:
+  primary:
+    block:
+      - "system-view"
+      - "interface {interface}"
+      - "port link-type trunk"
+      - "y"
+      - "port trunk pvid vlan {native_vlan}"
+      - "undo port trunk allow-pass vlan all"
+      - "port trunk allow-pass vlan {allowed_vlans}"
+      - "commit"
+      - "quit"
+      - "quit"
+  alternatives:
+    - triggered_by_error: '\]y\r?\n\s*\^\r?\nError: Unrecognized command'
+      block:
+        - "system-view"
+        - "interface {interface}"
+        - "port link-type trunk"
+        - "port trunk pvid vlan {native_vlan}"
+        - "undo port trunk allow-pass vlan all"
+        - "port trunk allow-pass vlan {allowed_vlans}"
+        - "commit"
+        - "quit"
+        - "quit"
+    - triggered_by_error: *interface_wrong_param
+      block:
+        - "system-view"
+        - "interface {interface_full}"
+        - "port link-type trunk"
+        - "y"
+        - "port trunk pvid vlan {native_vlan}"
+        - "undo port trunk allow-pass vlan all"
+        - "port trunk allow-pass vlan {allowed_vlans}"
+        - "quit"
+        - "quit"
+    - triggered_by_error: '\]commit\r?\n\s*\^\r?\nError: Unrecognized command'
+      block:
+        - "system-view"
+        - "interface {interface}"
+        - "port link-type trunk"
+        - "y"
+        - "port trunk pvid vlan {native_vlan}"
+        - "undo port trunk allow-pass vlan all"
+        - "port trunk allow-pass vlan {allowed_vlans}"
+        - "quit"
+        - "quit"
+
+create_svi:
+  primary:
+    block: ["system-view", "interface Vlanif{vlan_id}", "undo shutdown", "commit", "quit", "quit"]
+  alternatives:
+    - triggered_by_error: '\]commit\r?\n\s*\^\r?\nError: Unrecognized command'
+      block:
+        - "system-view"
+        - "interface Vlanif{vlan_id}"
+        - "undo shutdown"
+        - "quit"
+        - "quit"
+
+delete_svi:
+  primary:
+    block: ["system-view", "undo interface Vlanif{vlan_id}", "commit", "quit"]
+  alternatives:
+    - triggered_by_error: '\]commit\r?\n\s*\^\r?\nError: Unrecognized command'
+      block:
+        - "system-view"
+        - "undo interface Vlanif{vlan_id}"
+        - "quit"
+
+set_svi_admin_state:
+  enabled:
+    primary:
+      block: ["system-view", "interface Vlanif{vlan_id}", "undo shutdown", "commit", "quit", "quit"]
+    alternatives:
+      - triggered_by_error: '\]commit\r?\n\s*\^\r?\nError: Unrecognized command'
+        block:
+          - "system-view"
+          - "interface Vlanif{vlan_id}"
+          - "undo shutdown"
+          - "quit"
+          - "quit"
+  disabled:
+    primary:
+      block: ["system-view", "interface Vlanif{vlan_id}", "shutdown", "commit", "quit", "quit"]
+    alternatives:
+      - triggered_by_error: '\]commit\r?\n\s*\^\r?\nError: Unrecognized command'
+        block:
+          - "system-view"
+          - "interface Vlanif{vlan_id}"
+          - "shutdown"
+          - "quit"
+          - "quit"
+
+set_svi_description:
+  set:
+    primary:
+      block: ["system-view", "interface Vlanif{vlan_id}", "description {description}", "commit", "quit", "quit"]
+    alternatives:
+      - triggered_by_error: '\]commit\r?\n\s*\^\r?\nError: Unrecognized command'
+        block:
+          - "system-view"
+          - "interface Vlanif{vlan_id}"
+          - "description {description}"
+          - "quit"
+          - "quit"
+  clear:
+    primary:
+      block: ["system-view", "interface Vlanif{vlan_id}", "undo description", "commit", "quit", "quit"]
+    alternatives:
+      - triggered_by_error: '\]commit\r?\n\s*\^\r?\nError: Unrecognized command'
+        block:
+          - "system-view"
+          - "interface Vlanif{vlan_id}"
+          - "undo description"
+          - "quit"
+          - "quit"
+
+set_svi_ipv4:
+  set:
+    primary:
+      block: ["system-view", "interface Vlanif{vlan_id}", "ip address {ipv4_addr} {ipv4_mask}", "commit", "quit", "quit"]
+    alternatives:
+      - triggered_by_error: '\]commit\r?\n\s*\^\r?\nError: Unrecognized command'
+        block:
+          - "system-view"
+          - "interface Vlanif{vlan_id}"
+          - "ip address {ipv4_addr} {ipv4_mask}"
+          - "quit"
+          - "quit"
+  clear:
+    primary:
+      block: ["system-view", "interface Vlanif{vlan_id}", "undo ip address", "commit", "quit", "quit"]
+    alternatives:
+      - triggered_by_error: '\]commit\r?\n\s*\^\r?\nError: Unrecognized command'
+        block:
+          - "system-view"
+          - "interface Vlanif{vlan_id}"
+          - "undo ip address"
+          - "quit"
+          - "quit"
+
+set_svi_ipv4_secondary:
+  set:
+    primary:
+      block: ["system-view", "interface Vlanif{vlan_id}", "ip address {ipv4_addr} {ipv4_mask} sub", "commit", "quit", "quit"]
+    alternatives:
+      - triggered_by_error: '\]commit\r?\n\s*\^\r?\nError: Unrecognized command'
+        block:
+          - "system-view"
+          - "interface Vlanif{vlan_id}"
+          - "ip address {ipv4_addr} {ipv4_mask} sub"
+          - "quit"
+          - "quit"
+  clear:
+    primary:
+      block: ["system-view", "interface Vlanif{vlan_id}", "undo ip address {ipv4_addr} {ipv4_mask} sub", "commit", "quit", "quit"]
+    alternatives:
+      - triggered_by_error: '\]commit\r?\n\s*\^\r?\nError: Unrecognized command'
+        block:
+          - "system-view"
+          - "interface Vlanif{vlan_id}"
+          - "undo ip address {ipv4_addr} {ipv4_mask} sub"
+          - "quit"
+          - "quit"
+
+set_svi_ipv6:
+  set:
+    primary:
+      block: ["system-view", "interface Vlanif{vlan_id}", "ipv6 enable", "ipv6 address {ipv6_address}", "commit", "quit", "quit"]
+    alternatives:
+      - triggered_by_error: '\]commit\r?\n\s*\^\r?\nError: Unrecognized command'
+        block:
+          - "system-view"
+          - "interface Vlanif{vlan_id}"
+          - "ipv6 enable"
+          - "ipv6 address {ipv6_address}"
+          - "quit"
+          - "quit"
+  clear:
+    primary:
+      block: ["system-view", "interface Vlanif{vlan_id}", "undo ipv6 address", "commit", "quit", "quit"]
+    alternatives:
+      - triggered_by_error: '\]commit\r?\n\s*\^\r?\nError: Unrecognized command'
+        block:
+          - "system-view"
+          - "interface Vlanif{vlan_id}"
+          - "undo ipv6 address"
+          - "quit"
+          - "quit"
+
+set_svi_acl:
+  set_numeric:
+    primary:
+      block: ["system-view", "interface Vlanif{vlan_id}", "traffic-filter {direction}bound acl {acl_name}", "commit", "quit", "quit"]
+    alternatives:
+      - triggered_by_error: '\]commit\r?\n\s*\^\r?\nError: Unrecognized command'
+        block:
+          - "system-view"
+          - "interface Vlanif{vlan_id}"
+          - "traffic-filter {direction}bound acl {acl_name}"
+          - "quit"
+          - "quit"
+  set_named:
+    primary:
+      block: ["system-view", "interface Vlanif{vlan_id}", "traffic-filter {direction}bound acl name {acl_name}", "commit", "quit", "quit"]
+    alternatives:
+      - triggered_by_error: '\]commit\r?\n\s*\^\r?\nError: Unrecognized command'
+        block:
+          - "system-view"
+          - "interface Vlanif{vlan_id}"
+          - "traffic-filter {direction}bound acl name {acl_name}"
+          - "quit"
+          - "quit"
+  clear_numeric:
+    primary:
+      block: ["system-view", "interface Vlanif{vlan_id}", "undo traffic-filter {direction}bound acl {acl_name}", "commit", "quit", "quit"]
+    alternatives:
+      - triggered_by_error: '\]commit\r?\n\s*\^\r?\nError: Unrecognized command'
+        block:
+          - "system-view"
+          - "interface Vlanif{vlan_id}"
+          - "undo traffic-filter {direction}bound acl {acl_name}"
+          - "quit"
+          - "quit"
+  clear_named:
+    primary:
+      block: ["system-view", "interface Vlanif{vlan_id}", "undo traffic-filter {direction}bound acl name {acl_name}", "commit", "quit", "quit"]
+    alternatives:
+      - triggered_by_error: '\]commit\r?\n\s*\^\r?\nError: Unrecognized command'
+        block:
+          - "system-view"
+          - "interface Vlanif{vlan_id}"
+          - "undo traffic-filter {direction}bound acl name {acl_name}"
+          - "quit"
+          - "quit"
+
+set_svi_dhcp_relay:
+  primary:
+    block:
+      - "system-view"
+      - "interface Vlanif{vlan_id}"
+      - "undo dhcp select relay"
+      - "undo dhcp relay binding server group"
+      - "quit"
+      - "undo dhcp relay server group ansiauth-vlan{vlan_id}"
+      - "interface Vlanif{vlan_id}"
+    repeat:
+      over: "servers"
+      prefix_if_nonempty: ["dhcp select relay"]
+      line: "dhcp relay server-ip {item}"
+    trailer: ["commit", "quit", "quit"]
+  alternatives:
+    - triggered_by_error: '\]commit\r?\n\s*\^\r?\nError: Unrecognized command'
+      block:
+        - "system-view"
+        - "interface Vlanif{vlan_id}"
+        - "undo dhcp select relay"
+        - "undo dhcp relay binding server group"
+        - "quit"
+        - "undo dhcp relay server group ansiauth-vlan{vlan_id}"
+        - "interface Vlanif{vlan_id}"
+      repeat:
+        over: "servers"
+        prefix_if_nonempty: ["dhcp select relay"]
+        line: "dhcp relay server-ip {item}"
+      trailer: ["quit", "quit"]
+    - triggered_by_error: 'dhcp relay server-ip \S+\r?\n\s*\^\r?\nError: (?:Unrecognized|Incomplete) command'
+      block:
+        - "system-view"
+        - "interface Vlanif{vlan_id}"
+        - "undo dhcp relay binding server group"
+        - "quit"
+        - "undo dhcp relay server group ansiauth-vlan{vlan_id}"
+      repeat:
+        over: "servers"
+        prefix_if_nonempty: ["dhcp relay server group ansiauth-vlan{vlan_id}"]
+        line: "server {item} {index}"
+        suffix_if_nonempty:
+          - "quit"
+          - "interface Vlanif{vlan_id}"
+          - "dhcp select relay"
+          - "dhcp relay binding server group ansiauth-vlan{vlan_id}"
+        if_empty:
+          - "interface Vlanif{vlan_id}"
+          - "undo dhcp select relay"
+      trailer: ["commit", "quit", "quit"]
+    - triggered_by_error: 'dhcp relay (?:binding server group|server group ansiauth-vlan\d+)\r?\n\s*\^\r?\nError: Unrecognized command'
+      block:
+        - "system-view"
+        - "interface Vlanif{vlan_id}"
+        - "undo dhcp select relay"
+      repeat:
+        over: "servers"
+        prefix_if_nonempty: ["dhcp select relay"]
+        line: "dhcp relay server-ip {item}"
+      trailer: ["quit", "quit"]
+
+set_svi_dhcp_relay_delta:
+  primary:
+    block:
+      - "system-view"
+    repeat:
+      over: "relay_lines"
+      line: "{item}"
+    trailer: ["commit", "quit", "quit"]
+  alternatives:
+    - triggered_by_error: '\]commit\r?\n\s*\^\r?\nError: Unrecognized command'
+      block:
+        - "system-view"
+      repeat:
+        over: "relay_lines"
+        line: "{item}"
+      trailer: ["quit", "quit"]
+
+list_acls:
+  primary:
+    commands:
+      - "display acl all"
+
+create_or_update_acl:
+  primary:
+    block:
+      - "screen-width 512"
+      - "y"
+      - "system-view"
+      - "acl name {name} advance"
+    repeat:
+      over: "rule_lines"
+      line: "{item}"
+    trailer: ["quit", "commit", "quit"]
+  alternatives:
+    - triggered_by_error: 'screen-width 512\r?\n\s*\^\r?\nError: Unrecognized command'
+      block:
+        - "system-view"
+        - "acl name {name} advance"
+      repeat:
+        over: "rule_lines"
+        line: "{item}"
+      trailer: ["quit", "commit", "quit"]
+    - triggered_by_error: '\]commit\r?\n\s*\^\r?\nError: Unrecognized command'
+      block:
+        - "screen-width 512"
+        - "y"
+        - "system-view"
+        - "acl name {name} advance"
+      repeat:
+        over: "rule_lines"
+        line: "{item}"
+      trailer: ["quit", "quit"]
+
+remove_acl_rules:
+  primary:
+    block:
+      - "screen-width 512"
+      - "y"
+      - "system-view"
+      - "acl name {name} advance"
+    repeat:
+      over: "rule_lines"
+      line: "undo {item}"
+    trailer: ["quit", "commit", "quit"]
+  alternatives:
+    - triggered_by_error: 'screen-width 512\r?\n\s*\^\r?\nError: Unrecognized command'
+      block:
+        - "system-view"
+        - "acl name {name} advance"
+      repeat:
+        over: "rule_lines"
+        line: "undo {item}"
+      trailer: ["quit", "commit", "quit"]
+    - triggered_by_error: '\]commit\r?\n\s*\^\r?\nError: Unrecognized command'
+      block:
+        - "screen-width 512"
+        - "y"
+        - "system-view"
+        - "acl name {name} advance"
+      repeat:
+        over: "rule_lines"
+        line: "undo {item}"
+      trailer: ["quit", "quit"]
+
+delete_acl:
+  primary:
+    block:
+      - "system-view"
+      - "undo acl name {name}"
+      - "commit"
+      - "quit"
+  alternatives:
+    - triggered_by_error: '\]commit\r?\n\s*\^\r?\nError: Unrecognized command'
+      block:
+        - "system-view"
+        - "undo acl name {name}"
+        - "quit"
+
+get_global_config:
+  primary:
+    commands:
+      - "display version"
+      - "display current-configuration | include sysname"
+      - "display ip routing-table"
+      - "display current-configuration"
+
+get_snmp_status:
+  primary:
+    commands:
+      - "display snmp-agent sys-info"
+
+set_hostname:
+  primary:
+    block:
+      - "system-view"
+      - "sysname {hostname}"
+      - "commit"
+      - "quit"
+  alternatives:
+    - triggered_by_error: '\]commit\r?\n\s*\^\r?\nError: Unrecognized command'
+      block:
+        - "system-view"
+        - "sysname {hostname}"
+        - "quit"
+
+set_snmp_version:
+  primary:
+    block:
+      - "system-view"
+      - "snmp-agent sys-info version {version}"
+      - "commit"
+      - "quit"
+  alternatives:
+    - triggered_by_error: '\]commit\r?\n\s*\^\r?\nError: Unrecognized command'
+      block:
+        - "system-view"
+        - "snmp-agent sys-info version {version}"
+        - "quit"
+
+set_snmp_community:
+  primary:
+    block:
+      - "system-view"
+      - "snmp-agent community {verbo} {community}"
+      - "commit"
+      - "quit"
+  alternatives:
+    - triggered_by_error: '\]commit\r?\n\s*\^\r?\nError: Unrecognized command'
+      block:
+        - "system-view"
+        - "snmp-agent community {verbo} {community}"
+        - "quit"
+
+set_snmp_trap_source:
+  primary:
+    block:
+      - "system-view"
+      - "snmp-agent trap source {interface}"
+      - "commit"
+      - "quit"
+  alternatives:
+    - triggered_by_error: '\]commit\r?\n\s*\^\r?\nError: Unrecognized command'
+      block:
+        - "system-view"
+        - "snmp-agent trap source {interface}"
+        - "quit"
+
+set_snmp_trap_host:
+  primary:
+    block:
+      - "screen-width 512"
+      - "y"
+      - "system-view"
+      - "snmp-agent target-host trap address udp-domain {host} params securityname {community} v2c"
+      - "quit"
+  alternatives:
+    - triggered_by_error: 'screen-width 512\r?\n\s*\^\r?\nError: Unrecognized command'
+      block:
+        - "system-view"
+        - "snmp-agent target-host trap address udp-domain {host} params securityname {community} v2c"
+        - "quit"
+
+remove_snmp_trap_host:
+  primary:
+    block:
+      - "screen-width 512"
+      - "y"
+      - "system-view"
+      - "undo snmp-agent target-host trap address udp-domain {host} params securityname {community}"
+      - "quit"
+  alternatives:
+    - triggered_by_error: 'screen-width 512\r?\n\s*\^\r?\nError: Unrecognized command'
+      block:
+        - "system-view"
+        - "undo snmp-agent target-host trap address udp-domain {host} params securityname {community}"
+        - "quit"
+
+add_ntp:
+  primary:
+    block:
+      - "system-view"
+      - "ntp unicast-server {server}"
+      - "commit"
+      - "quit"
+  alternatives:
+    - triggered_by_error: '\]commit\r?\n\s*\^\r?\nError: Unrecognized command'
+      block:
+        - "system-view"
+        - "ntp unicast-server {server}"
+        - "quit"
+
+remove_ntp:
+  primary:
+    block:
+      - "system-view"
+      - "undo ntp unicast-server {server}"
+      - "commit"
+      - "quit"
+  alternatives:
+    - triggered_by_error: '\]commit\r?\n\s*\^\r?\nError: Unrecognized command'
+      block:
+        - "system-view"
+        - "undo ntp unicast-server {server}"
+        - "quit"
+
+add_dns:
+  primary:
+    block:
+      - "system-view"
+      - "dns resolve"
+      - "dns server {server}"
+      - "commit"
+      - "quit"
+  alternatives:
+    - triggered_by_error: '\]commit\r?\n\s*\^\r?\nError: Unrecognized command'
+      block:
+        - "system-view"
+        - "dns resolve"
+        - "dns server {server}"
+        - "quit"
+
+remove_dns:
+  primary:
+    block:
+      - "system-view"
+      - "undo dns server {server}"
+      - "commit"
+      - "quit"
+  alternatives:
+    - triggered_by_error: '\]commit\r?\n\s*\^\r?\nError: Unrecognized command'
+      block:
+        - "system-view"
+        - "undo dns server {server}"
+        - "quit"
+
+set_dns_domain:
+  primary:
+    block:
+      - "system-view"
+      - "dns domain {domain}"
+      - "commit"
+      - "quit"
+  alternatives:
+    - triggered_by_error: '\]commit\r?\n\s*\^\r?\nError: Unrecognized command'
+      block:
+        - "system-view"
+        - "dns domain {domain}"
+        - "quit"
+
+add_log_host:
+  primary:
+    block:
+      - "system-view"
+      - "info-center loghost {server}"
+      - "commit"
+      - "quit"
+  alternatives:
+    - triggered_by_error: '\]commit\r?\n\s*\^\r?\nError: Unrecognized command'
+      block:
+        - "system-view"
+        - "info-center loghost {server}"
+        - "quit"
+
+remove_log_host:
+  primary:
+    block:
+      - "system-view"
+      - "undo info-center loghost {server}"
+      - "commit"
+      - "quit"
+  alternatives:
+    - triggered_by_error: '\]commit\r?\n\s*\^\r?\nError: Unrecognized command'
+      block:
+        - "system-view"
+        - "undo info-center loghost {server}"
+        - "quit"
+
+set_log_channel_level:
+  primary:
+    block:
+      - "system-view"
+      - "info-center source default channel 2 log level {level}"
+      - "commit"
+      - "quit"
+  alternatives:
+    - triggered_by_error: '\]commit\r?\n\s*\^\r?\nError: Unrecognized command'
+      block:
+        - "system-view"
+        - "info-center source default channel 2 log level {level}"
+        - "quit"
+
+set_route:
+  primary:
+    block:
+      - "system-view"
+      - "ip route-static {network} {mask} {next_hop}"
+      - "commit"
+      - "quit"
+  alternatives:
+    - triggered_by_error: '\]commit\r?\n\s*\^\r?\nError: Unrecognized command'
+      block:
+        - "system-view"
+        - "ip route-static {network} {mask} {next_hop}"
+        - "quit"
+
+remove_route:
+  primary:
+    block:
+      - "system-view"
+      - "undo ip route-static {network} {mask} {next_hop}"
+      - "commit"
+      - "quit"
+  alternatives:
+    - triggered_by_error: '\]commit\r?\n\s*\^\r?\nError: Unrecognized command'
+      block:
+        - "system-view"
+        - "undo ip route-static {network} {mask} {next_hop}"
+        - "quit"
+

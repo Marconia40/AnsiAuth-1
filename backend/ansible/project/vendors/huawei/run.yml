@@ -1,0 +1,35 @@
+---
+
+- name: Huawei VRP device operation
+  hosts: all
+  gather_facts: no
+
+  tasks:
+    - block:
+        - name: Apply command block
+          when: command_block is defined
+          ansible.netcommon.cli_command:
+            command: "{{ command_block }}"
+
+        - name: Apply command block batch
+          when: command_blocks is defined
+          ansible.netcommon.cli_command:
+            command: "{{ item }}"
+          loop: "{{ command_blocks }}"
+
+        - name: Run read commands (strict — default)
+          when: commands is defined and not (tolerate_command_errors | default(false) | bool)
+          ansible.netcommon.cli_command:
+            command: "{{ item }}"
+          loop: "{{ commands }}"
+
+        - name: Run read commands (tolerant — per-command errors surface as text)
+          when: commands is defined and (tolerate_command_errors | default(false) | bool)
+          ansible.netcommon.cli_command:
+            command: "{{ item }}"
+          loop: "{{ commands }}"
+          failed_when: false
+
+      always:
+        - name: Close the persistent connection
+          meta: reset_connection

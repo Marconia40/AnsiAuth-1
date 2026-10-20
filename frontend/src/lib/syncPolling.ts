@@ -1,0 +1,1 @@
+export const SYNC_POLL_INTERVAL_MS = 8000;

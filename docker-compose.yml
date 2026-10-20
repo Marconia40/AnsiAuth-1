@@ -1,0 +1,223 @@
+# Local + CI stack for AnsiAuth on PostgreSQL.
+#
+# Usage:
+#   docker compose up -d              # start db + backend + worker
+#   docker compose logs -f backend    # tail backend logs
+#   docker compose logs -f worker     # tail celery worker logs
+#   docker compose down               # stop, keep data
+#   docker compose down -v            # stop and wipe the postgres volume
+#
+# The backend reads DATABASE_URL from its environment (Step 2's Settings
+# class). When this file is in use, that URL points at the `db` service
+# below; outside compose the default is SQLite at backend/app/db/app.db.
+
+services:
+  redis:
+    image: redis:7-alpine
+    container_name: ansiauth-redis
+    # Con contraseña: quien llega a Redis puede encolar tareas de Celery
+    # (cambios en los equipos sin pasar por la API, el RBAC ni la auditoría)
+    # y borrar los bloqueos de los equipos.
+    command: ["redis-server", "--requirepass", "${REDIS_PASSWORD:-redis_dev_password_change_me}"]
+    environment:
+      REDISCLI_AUTH: ${REDIS_PASSWORD:-redis_dev_password_change_me}
+    # Solo desde el propio host (scripts locales); los contenedores lo
+    # alcanzan por la red interna de compose sin publicar nada.
+    ports:
+      - "127.0.0.1:6379:6379"
+    healthcheck:
+      test: ["CMD", "redis-cli", "ping"]
+      interval: 5s
+      timeout: 3s
+      retries: 10
+
+  db:
+    image: postgres:16-alpine
+    container_name: ansiauth-postgres
+    environment:
+      POSTGRES_DB: ansiauth
+      POSTGRES_USER: ansiauth
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:-ansiauth_dev_password}
+    # Solo desde el propio host (scripts locales, ver comentario de redis).
+    ports:
+      - "127.0.0.1:5432:5432"
+    volumes:
+      - ansiauth-postgres-data:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U ansiauth -d ansiauth"]
+      interval: 5s
+      timeout: 3s
+      retries: 10
+
+  backend:
+    # init: true -> tini como PID 1: cosecha procesos huérfanos (ssh-agent,
+    # ssh, ansible) para que no queden zombies agotando los PIDs del
+    # contenedor. Bug real: sin esto el worker terminaba con "can't start
+    # new thread".
+    init: true
+    # En memoria: el inventario de Ansible de cada ejecución (/tmp) y la
+    # clave privada de la vía SSH directa (device_ssh_keys) se escriben
+    # descifrados por un instante; así nunca tocan el disco y desaparecen
+    # si el contenedor se cae antes de borrarlos.
+    tmpfs:
+      - /tmp
+      - /app/device_ssh_keys:mode=700,uid=10001,gid=10001
+    # La imagen ya corre como el usuario sin privilegios ansiauth (uid
+    # 10001); además no puede ganar privilegios (setuid) ni tiene
+    # capabilities de root.
+    security_opt:
+      - no-new-privileges:true
+    cap_drop:
+      - ALL
+    volumes:
+      # Claves de host aprendidas de los equipos (app.services.known_hosts):
+      # el worker las aprende y la API las olvida, así que lo comparten.
+      - ansiauth-ssh-known-hosts:/home/ansiauth/.ssh
+      # Artefactos de ansible-runner: los escribe el worker y los purga la
+      # API (cleanup_scheduler). Antes cada contenedor tenía los suyos y los
+      # del worker nunca se purgaban.
+      - ansiauth-ansible-artifacts:/app/ansible/artifacts
+    build:
+      context: ./backend
+      dockerfile: Dockerfile
+    container_name: ansiauth-backend
+    depends_on:
+      db:
+        condition: service_healthy
+      redis:
+        condition: service_healthy
+    environment:
+      # ── Database ──
+      DATABASE_URL: postgresql+psycopg://ansiauth:${POSTGRES_PASSWORD:-ansiauth_dev_password}@db:5432/ansiauth
+      # ── Secrets — override in a .env file or your secret manager ──
+      JWT_SECRET_KEY: ${JWT_SECRET_KEY:-dev_jwt_secret_change_me_change_me_change_me}
+      FERNET_KEY: ${FERNET_KEY:-}
+      BOOTSTRAP_ADMIN_PASSWORD: ${BOOTSTRAP_ADMIN_PASSWORD:-bootstrap_dev_password_123}
+      # ── Cookies — false por defecto (desarrollo local por HTTP); en un
+      # despliegue servido por HTTPS poner COOKIE_SECURE=true en el .env ──
+      COOKIE_SECURE: ${COOKIE_SECURE:-false}
+      # ── Execution mode — keep the stack self-contained by default ──
+      EXECUTION_MODE: ${EXECUTION_MODE:-mock}
+      # ── Celery + Redis ──
+      REDIS_URL: redis://:${REDIS_PASSWORD:-redis_dev_password_change_me}@redis:6379/0
+      # ── Ansible timeouts (raised for devices with large configs:
+      # many VLANs / routes / interfaces can push a single read past 60s) ──
+      ANSIBLE_TIMEOUT: ${ANSIBLE_TIMEOUT:-300}
+      ANSIBLE_PERSISTENT_COMMAND_TIMEOUT: ${ANSIBLE_PERSISTENT_COMMAND_TIMEOUT:-300}
+      ANSIBLE_PERSISTENT_CONNECT_TIMEOUT: ${ANSIBLE_PERSISTENT_CONNECT_TIMEOUT:-120}
+      # ── Direct SSH (auth_method="key") command timeout ──
+      SSH_DIRECT_COMMAND_TIMEOUT: ${SSH_DIRECT_COMMAND_TIMEOUT:-300}
+      # Candado por equipo: vencimiento corto que un hilo renueva mientras el trabajo corre,
+      # y cuanto espera un trabajo para tomarlo antes de rendirse (segundos).
+      DEVICE_LOCK_TTL_S: ${DEVICE_LOCK_TTL_S:-60}
+      DEVICE_LOCK_RENEW_S: ${DEVICE_LOCK_RENEW_S:-20}
+      DEVICE_LOCK_WAIT_S: ${DEVICE_LOCK_WAIT_S:-600}
+    # 0.0.0.0 por default para no romper un proxy en otra máquina; con el
+    # proxy (Caddy) en este mismo host, BACKEND_BIND_ADDRESS=127.0.0.1.
+    ports:
+      - "${BACKEND_BIND_ADDRESS:-0.0.0.0}:8000:8000"
+
+  worker:
+    # init: true -> tini como PID 1: cosecha procesos huérfanos (ssh-agent,
+    # ssh, ansible) para que no queden zombies agotando los PIDs del
+    # contenedor. Bug real: sin esto el worker terminaba con "can't start
+    # new thread".
+    init: true
+    # En memoria: el inventario de Ansible de cada ejecución (/tmp) y la
+    # clave privada de la vía SSH directa (device_ssh_keys) se escriben
+    # descifrados por un instante; así nunca tocan el disco y desaparecen
+    # si el contenedor se cae antes de borrarlos.
+    tmpfs:
+      - /tmp
+      - /app/device_ssh_keys:mode=700,uid=10001,gid=10001
+    # La imagen ya corre como el usuario sin privilegios ansiauth (uid
+    # 10001); además no puede ganar privilegios (setuid) ni tiene
+    # capabilities de root.
+    security_opt:
+      - no-new-privileges:true
+    cap_drop:
+      - ALL
+    volumes:
+      # Claves de host aprendidas de los equipos (app.services.known_hosts):
+      # el worker las aprende y la API las olvida, así que lo comparten.
+      - ansiauth-ssh-known-hosts:/home/ansiauth/.ssh
+      # Artefactos de ansible-runner: los escribe el worker y los purga la
+      # API (cleanup_scheduler). Antes cada contenedor tenía los suyos y los
+      # del worker nunca se purgaban.
+      - ansiauth-ansible-artifacts:/app/ansible/artifacts
+    build:
+      context: ./backend
+      dockerfile: Dockerfile
+    container_name: ansiauth-worker
+    command: celery -A app.worker.celery_app worker --loglevel=info --concurrency=4
+    depends_on:
+      db:
+        condition: service_healthy
+      redis:
+        condition: service_healthy
+    environment:
+      # ── Database — same Postgres instance as the backend ──
+      DATABASE_URL: postgresql+psycopg://ansiauth:${POSTGRES_PASSWORD:-ansiauth_dev_password}@db:5432/ansiauth
+      # ── Secrets — must match the backend ──
+      JWT_SECRET_KEY: ${JWT_SECRET_KEY:-dev_jwt_secret_change_me_change_me_change_me}
+      FERNET_KEY: ${FERNET_KEY:-}
+      # ── Execution mode ──
+      EXECUTION_MODE: ${EXECUTION_MODE:-mock}
+      # ── Celery + Redis ──
+      REDIS_URL: redis://:${REDIS_PASSWORD:-redis_dev_password_change_me}@redis:6379/0
+      # ── Ansible timeouts (raised for devices with large configs:
+      # many VLANs / routes / interfaces can push a single read past 60s) ──
+      ANSIBLE_TIMEOUT: ${ANSIBLE_TIMEOUT:-300}
+      ANSIBLE_PERSISTENT_COMMAND_TIMEOUT: ${ANSIBLE_PERSISTENT_COMMAND_TIMEOUT:-300}
+      ANSIBLE_PERSISTENT_CONNECT_TIMEOUT: ${ANSIBLE_PERSISTENT_CONNECT_TIMEOUT:-120}
+      # ── Direct SSH (auth_method="key") command timeout ──
+      SSH_DIRECT_COMMAND_TIMEOUT: ${SSH_DIRECT_COMMAND_TIMEOUT:-300}
+      # Candado por equipo: vencimiento corto que un hilo renueva mientras el trabajo corre,
+      # y cuanto espera un trabajo para tomarlo antes de rendirse (segundos).
+      DEVICE_LOCK_TTL_S: ${DEVICE_LOCK_TTL_S:-60}
+      DEVICE_LOCK_RENEW_S: ${DEVICE_LOCK_RENEW_S:-20}
+      DEVICE_LOCK_WAIT_S: ${DEVICE_LOCK_WAIT_S:-600}
+
+  # Celery Beat: scheduler process that fires periodic tasks
+  # (currently only ``sync_stale_devices_task`` every SYNC_STALE_INTERVAL_MIN
+  # minutes). Runs as its own service so worker concurrency can scale
+  # horizontally without duplicating the scheduler -- if we ran it via
+  # ``celery worker -B`` two workers would fire the same schedule twice.
+  beat:
+    # init: true -> tini como PID 1: cosecha procesos huérfanos (ssh-agent,
+    # ssh, ansible) para que no queden zombies agotando los PIDs del
+    # contenedor. Bug real: sin esto el worker terminaba con "can't start
+    # new thread".
+    init: true
+    build:
+      context: ./backend
+      dockerfile: Dockerfile
+    container_name: ansiauth-beat
+    # El archivo de estado de beat va a /tmp: /app es de root y solo lectura
+    # para el usuario de la imagen.
+    command: celery -A app.worker.celery_app beat --loglevel=info --schedule /tmp/celerybeat-schedule
+    security_opt:
+      - no-new-privileges:true
+    cap_drop:
+      - ALL
+    depends_on:
+      redis:
+        condition: service_healthy
+    environment:
+      # Beat doesn't hit Postgres directly (it only enqueues to Redis),
+      # but ``app.worker`` transitively imports app.core.config which
+      # requires DATABASE_URL to be set even if unused.
+      DATABASE_URL: postgresql+psycopg://ansiauth:${POSTGRES_PASSWORD:-ansiauth_dev_password}@db:5432/ansiauth
+      JWT_SECRET_KEY: ${JWT_SECRET_KEY:-dev_jwt_secret_change_me_change_me_change_me}
+      FERNET_KEY: ${FERNET_KEY:-}
+      REDIS_URL: redis://:${REDIS_PASSWORD:-redis_dev_password_change_me}@redis:6379/0
+      # Scheduler cadence — matches the constant in app/tasks.py; kept
+      # here so ops can tune it via .env without rebuilding.
+      SYNC_STALE_INTERVAL_MIN: ${SYNC_STALE_INTERVAL_MIN:-20}
+      SYNC_STALE_THRESHOLD_S: ${SYNC_STALE_THRESHOLD_S:-420}
+      SYNC_STALE_STAGGER_S: ${SYNC_STALE_STAGGER_S:-3}
+
+volumes:
+  ansiauth-postgres-data:
+  ansiauth-ssh-known-hosts:
+  ansiauth-ansible-artifacts:

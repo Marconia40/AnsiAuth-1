@@ -1,0 +1,40 @@
+from datetime import datetime
+
+from pydantic import BaseModel, ConfigDict
+
+
+class TokenResponse(BaseModel):
+    model_config = ConfigDict(json_schema_extra={
+        "example": {
+            "access_token": "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9...",
+            "token_type": "bearer",
+            "refresh_token": "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9...",
+        }
+    })
+
+    access_token: str
+    token_type: str
+    refresh_token: str
+
+
+class ActiveSession(BaseModel):
+    session_id: str
+    current: bool
+    created_at: datetime
+    last_used_at: datetime
+    expires_at: datetime
+    ip_address: str | None
+    user_agent: str | None
+
+
+class ActiveSessionsResponse(BaseModel):
+    sessions: list[ActiveSession]
+
+
+class ReauthRequest(BaseModel):
+    password: str
+
+
+class ReauthResponse(BaseModel):
+    elevated_token: str
+    expires_in: int

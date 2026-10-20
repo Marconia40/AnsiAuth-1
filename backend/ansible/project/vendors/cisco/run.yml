@@ -1,0 +1,39 @@
+---
+
+- name: Cisco IOS device operation
+  hosts: all
+  gather_facts: no
+
+  tasks:
+    - block:
+        - name: Apply config lines
+          when: lines is defined
+          cisco.ios.ios_config:
+            parents: "{{ parents | default(omit) }}"
+            lines: "{{ lines }}"
+            match: "{{ match | default(omit) }}"
+
+        - name: Apply config steps batch
+          when: config_steps is defined
+          cisco.ios.ios_config:
+            parents: "{{ item.parents | default(omit) }}"
+            lines: "{{ item.lines }}"
+            match: "{{ item.match | default(omit) }}"
+          loop: "{{ config_steps }}"
+
+        - name: Run commands (strict — default)
+          when: commands is defined and not (tolerate_command_errors | default(false) | bool)
+          cisco.ios.ios_command:
+            commands: "{{ commands }}"
+
+        - name: Run commands (tolerant — per-command errors surface as text)
+          when: commands is defined and (tolerate_command_errors | default(false) | bool)
+          cisco.ios.ios_command:
+            commands:
+              - "{{ item }}"
+          loop: "{{ commands }}"
+          failed_when: false
+
+      always:
+        - name: Close the persistent connection
+          meta: reset_connection

@@ -1,0 +1,370 @@
+create_vlan:
+  primary:
+    parents: "vlan {vlan_id}"
+    lines: ["name {name}"]
+
+delete_vlan:
+  primary:
+    lines: ["no vlan {vlan_id}"]
+
+update_vlan:
+  primary:
+    parents: "vlan {vlan_id}"
+    lines: ["name {name}"]
+
+save_config:
+  success_pattern: '\[OK\]'
+  primary:
+    commands: ["write"]
+  alternatives:
+    - triggered_by_error: '(?i)invalid input|unrecognized|incomplete command|ambiguous|did not confirm the operation'
+      commands: ["write memory"]
+
+list_vlans:
+  primary:
+    commands: ["show vlan brief"]
+
+list_ports:
+  primary:
+    commands:
+      - "show interfaces status"
+      - "show interfaces description"
+      - "show interfaces switchport"
+      - "show storm-control broadcast"
+      - "show running-config | section ^interface"
+
+update_port_description:
+  set:
+    primary:
+      parents: "interface {interface}"
+      lines: ["description {description}"]
+  clear:
+    primary:
+      parents: "interface {interface}"
+      lines: ["no description"]
+
+set_port_admin_state:
+  enabled:
+    primary:
+      parents: "interface {interface}"
+      lines: ["no shutdown"]
+  disabled:
+    primary:
+      parents: "interface {interface}"
+      lines: ["shutdown"]
+
+set_port_access_vlan:
+  primary:
+    parents: "interface {interface}"
+    lines: ["switchport access vlan {vlan_id}"]
+
+set_trunk_pvid_vlan:
+  primary:
+    parents: "interface {interface}"
+    lines: ["switchport trunk native vlan {vlan_id}"]
+
+set_trunk_allowed_vlans:
+  primary:
+    parents: "interface {interface}"
+    lines: ["switchport trunk allowed vlan {allowed_vlans}"]
+
+set_trunk_vlans_delta:
+  add:
+    primary:
+      parents: "interface {interface}"
+      lines: ["switchport trunk allowed vlan add {add_vlans}"]
+      match: "none"
+  remove:
+    primary:
+      parents: "interface {interface}"
+      lines: ["switchport trunk allowed vlan remove {remove_vlans}"]
+      match: "none"
+  both:
+    primary:
+      parents: "interface {interface}"
+      lines:
+        - "switchport trunk allowed vlan add {add_vlans}"
+        - "switchport trunk allowed vlan remove {remove_vlans}"
+      match: "none"
+
+set_trunk_config_delta:
+  primary:
+    parents: "interface {interface}"
+    lines: []
+    match: "none"
+    repeat:
+      over: "trunk_lines"
+      line: "{item}"
+
+set_port_poe:
+  enabled:
+    primary:
+      parents: "interface {interface}"
+      lines: ["power inline auto"]
+  disabled:
+    primary:
+      parents: "interface {interface}"
+      lines: ["power inline never"]
+
+set_storm_control:
+  enabled:
+    primary:
+      parents: "interface {interface}"
+      lines:
+      - "storm-control broadcast include multicast"
+      - "storm-control broadcast level {threshold}"
+      repeat:
+        over: "action_lines"
+        line: "{item}"
+    alternatives:
+      - triggered_by_error: 'storm-control broadcast include multicast\r?\n\s*\^\r?\n%\s*Invalid input'
+        parents: "interface {interface}"
+        lines:
+        - "storm-control multicast level {threshold}"
+        - "storm-control broadcast level {threshold}"
+        repeat:
+          over: "action_lines"
+          line: "{item}"
+
+  disabled:
+    primary:
+      parents: "interface {interface}"
+      lines:
+      - "no storm-control broadcast level"
+      - "no storm-control broadcast include multicast"
+      - "no storm-control action shutdown"
+      - "no storm-control action trap"
+    alternatives:
+      - triggered_by_error: 'no storm-control broadcast include multicast\r?\n\s*\^\r?\n%\s*Invalid input'
+        parents: "interface {interface}"
+        lines:
+        - "no storm-control broadcast level"
+        - "no storm-control multicast level"
+        - "no storm-control action shutdown"
+        - "no storm-control action trap"
+
+reset_port:
+  primary:
+    lines: ["default interface {interface}"]
+
+set_access_mode:
+  primary:
+    parents: "interface {interface}"
+    lines:
+      - "switchport mode access"
+      - "switchport access vlan {vlan_id}"
+      - "no switchport trunk native vlan"
+      - "no switchport trunk allowed vlan"
+
+set_trunk_mode:
+  primary:
+    parents: "interface {interface}"
+    lines:
+      - "switchport mode trunk"
+      - "switchport trunk native vlan {native_vlan}"
+      - "switchport trunk allowed vlan {allowed_vlans}"
+      - "no switchport access vlan"
+  alternatives:
+    - triggered_by_error: 'trunk encapsulation is .Auto.'
+      parents: "interface {interface}"
+      lines:
+        - "switchport trunk encapsulation dot1q"
+        - "switchport mode trunk"
+        - "switchport trunk native vlan {native_vlan}"
+        - "switchport trunk allowed vlan {allowed_vlans}"
+        - "no switchport access vlan"
+
+create_svi:
+  primary:
+    lines: ["interface Vlan{vlan_id}", "no shutdown"]
+
+delete_svi:
+  primary:
+    lines: ["no interface Vlan{vlan_id}"]
+
+set_svi_admin_state:
+  enabled:
+    primary:
+      parents: "interface Vlan{vlan_id}"
+      lines: ["no shutdown"]
+  disabled:
+    primary:
+      parents: "interface Vlan{vlan_id}"
+      lines: ["shutdown"]
+
+set_svi_description:
+  set:
+    primary:
+      parents: "interface Vlan{vlan_id}"
+      lines: ["description {description}"]
+  clear:
+    primary:
+      parents: "interface Vlan{vlan_id}"
+      lines: ["no description"]
+
+set_svi_ipv4:
+  set:
+    primary:
+      parents: "interface Vlan{vlan_id}"
+      lines: ["ip address {ipv4_addr} {ipv4_mask}"]
+  clear:
+    primary:
+      parents: "interface Vlan{vlan_id}"
+      lines: ["no ip address"]
+
+set_svi_ipv4_secondary:
+  set:
+    primary:
+      parents: "interface Vlan{vlan_id}"
+      lines: ["ip address {ipv4_addr} {ipv4_mask} secondary"]
+  clear:
+    primary:
+      parents: "interface Vlan{vlan_id}"
+      lines: ["no ip address {ipv4_addr} {ipv4_mask} secondary"]
+
+set_svi_ipv6:
+  set:
+    primary:
+      parents: "interface Vlan{vlan_id}"
+      lines: ["ipv6 address {ipv6_address}"]
+  clear:
+    primary:
+      parents: "interface Vlan{vlan_id}"
+      lines: ["no ipv6 address"]
+
+set_svi_acl:
+  set:
+    primary:
+      parents: "interface Vlan{vlan_id}"
+      lines: ["ip access-group {acl_name} {direction}"]
+  clear:
+    primary:
+      parents: "interface Vlan{vlan_id}"
+      lines: ["no ip access-group {direction}"]
+
+set_svi_dhcp_relay:
+  primary:
+    parents: "interface Vlan{vlan_id}"
+    lines: ["no ip helper-address"]
+    match: "none"
+    repeat:
+      over: "servers"
+      line: "ip helper-address {item}"
+
+set_svi_dhcp_relay_delta:
+  primary:
+    parents: "interface Vlan{vlan_id}"
+    lines: []
+    match: "none"
+    repeat:
+      over: "relay_lines"
+      line: "{item}"
+
+get_svis:
+  primary:
+    commands:
+      - "show running-config | section ^interface Vlan"
+      - "show ip interface brief | include Vlan"
+
+list_acls:
+  primary:
+    commands:
+      - "show access-lists"
+
+create_or_update_acl:
+  primary:
+    parents: "ip access-list extended {name}"
+    lines: []
+    repeat:
+      over: "rule_lines"
+      line: "{item}"
+
+remove_acl_rules:
+  primary:
+    parents: "ip access-list extended {name}"
+    lines: []
+    repeat:
+      over: "rule_lines"
+      line: "no {item}"
+
+delete_acl:
+  primary:
+    lines: ["no ip access-list extended {name}"]
+
+get_global_config:
+  primary:
+    commands:
+      - "show version"
+      - "show running-config | include hostname"
+      - "show running-config | include snmp-server community"
+      - "show ip route"
+      - "show running-config"
+
+get_snmp_status:
+  primary:
+    commands:
+      - "show snmp"
+
+set_hostname:
+  primary:
+    lines: ["hostname {hostname}"]
+
+set_snmp_community:
+  primary:
+    lines: ["snmp-server community {community} RO"]
+
+set_snmp_trap_source:
+  primary:
+    lines: ["snmp-server trap-source {interface}"]
+
+set_snmp_trap_host:
+  primary:
+    lines: ["snmp-server host {host} version {version} {community}"]
+
+remove_snmp_trap_host:
+  primary:
+    lines: ["no snmp-server host {host} {community}"]
+
+add_dns:
+  primary:
+    lines: ["ip name-server {server}"]
+
+remove_dns:
+  primary:
+    lines: ["no ip name-server {server}"]
+
+set_dns_domain:
+  primary:
+    lines: ["ip domain-name {domain}"]
+
+set_log_host:
+  primary:
+    lines: ["logging host {log_server}"]
+
+set_log_host_and_level:
+  primary:
+    lines: ["logging host {log_server}", "logging trap {log_level}"]
+
+remove_log_host:
+  primary:
+    lines: ["no logging host {log_server}"]
+
+set_route:
+  primary:
+    lines: ["ip route {network} {mask} {next_hop}"]
+
+remove_route:
+  primary:
+    lines: ["no ip route {network} {mask} {next_hop}"]
+
+add_ntp_with_prefer:
+  primary:
+    lines: ["ntp server {server} prefer"]
+
+add_ntp:
+  primary:
+    lines: ["ntp server {server}"]
+
+remove_ntp:
+  primary:
+    lines: ["no ntp server {server}"]

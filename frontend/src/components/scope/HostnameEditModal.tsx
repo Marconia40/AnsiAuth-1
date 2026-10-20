@@ -1,0 +1,124 @@
+'use client';
+
+import { useEffect, useState } from 'react';
+import { useMutation, useQueryClient } from '@tanstack/react-query';
+import { setGlobalConfigHostname, parseFieldErrors } from '@/services/api';
+import { useJobNotifications } from '@/context/JobNotificationContext';
+import { Modal } from './Modal';
+import {
+  FieldRow,
+  FieldError,
+  ModalPrimary,
+  ModalSecondary,
+  extractMessage,
+} from './VlanCreateModal';
+
+interface Props {
+  open: boolean;
+  onClose: () => void;
+  deviceName: string;
+  currentHostname: string | null;
+}
+
+export function HostnameEditModal({
+  open,
+  onClose,
+  deviceName,
+  currentHostname,
+}: Props) {
+  const queryClient = useQueryClient();
+  const { trackGroupJob } = useJobNotifications();
+  const [hostname, setHostname] = useState('');
+  const [error, setError] = useState<string | null>(null);
+  const [fieldErrors, setFieldErrors] = useState<Record<string, string> | null>(null);
+
+  /* eslint-disable react-hooks/set-state-in-effect */
+  useEffect(() => {
+    if (!open) return;
+    setHostname(currentHostname ?? '');
+    setError(null);
+    setFieldErrors(null);
+  }, [open, currentHostname]);
+  /* eslint-enable react-hooks/set-state-in-effect */
+
+  const trimmed = hostname.trim();
+  const lengthOk = trimmed.length >= 1 && trimmed.length <= 63;
+  const changed = trimmed !== (currentHostname ?? '');
+
+  const mutation = useMutation({
+    mutationFn: () => setGlobalConfigHostname(deviceName, { hostname: trimmed }),
+    onSuccess: (result) => {
+      trackGroupJob(result.group_job_id, `Set hostname on ${deviceName}`);
+      queryClient.invalidateQueries({
+        queryKey: ['global-config', 'synced', deviceName],
+      });
+      queryClient.invalidateQueries({
+        queryKey: ['global-config', 'version', 'synced', deviceName],
+      });
+      onClose();
+    },
+    onError: (err: unknown) => {
+      const fields = parseFieldErrors(err);
+      setFieldErrors(fields);
+      setError(fields ? null : extractMessage(err, 'Failed to queue the hostname change.'));
+    },
+  });
+
+  const canSubmit = lengthOk && changed && !mutation.isPending;
+
+  return (
+    <Modal
+      open={open}
+      onClose={mutation.isPending ? () => undefined : onClose}
+      title={`Edit hostname — ${deviceName}`}
+      footer={
+        <>
+          <ModalSecondary onClick={onClose} disabled={mutation.isPending}>
+            Cancel
+          </ModalSecondary>
+          <ModalPrimary
+            onClick={() => mutation.mutate()}
+            disabled={!canSubmit}
+          >
+            {mutation.isPending ? 'Applying…' : 'Apply'}
+          </ModalPrimary>
+        </>
+      }
+    >
+      <div className="flex flex-col gap-4">
+        <FieldRow label="Hostname">
+          <input
+            type="text"
+            value={hostname}
+            onChange={(e) => setHostname(e.target.value)}
+            placeholder="e.g. sw-core-01"
+            maxLength={63}
+            className="w-full rounded-md bg-panel-elev border border-panel-border px-3 py-2 text-sm text-text focus:outline-none focus:ring-2 focus:ring-info"
+          />
+          {!lengthOk && trimmed.length > 0 && (
+            <p className="text-xs text-danger mt-1">
+              Hostname must be 1..63 characters.
+            </p>
+          )}
+          {!changed && trimmed.length > 0 && (
+            <p className="text-xs text-muted mt-1">
+              Same as the current hostname — nothing to apply.
+            </p>
+          )}
+          <FieldError message={fieldErrors?.hostname} />
+        </FieldRow>
+
+        <p className="text-xs text-muted">
+          The change is applied asynchronously; watch the notifications
+          panel for job completion, then Refresh to see the new value.
+        </p>
+
+        {error && (
+          <p className="text-sm text-danger border border-danger/40 bg-danger/10 rounded px-3 py-2">
+            {error}
+          </p>
+        )}
+      </div>
+    </Modal>
+  );
+}

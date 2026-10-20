@@ -1,0 +1,37 @@
+# Nada de esto tiene que terminar dentro de la imagen: secretos, salidas de
+# los equipos, bases locales y entornos de desarrollo.
+
+# Secretos y certificados
+.env
+.env.*
+!.env.example
+*.pem
+*.key
+
+# Salidas de ansible-runner (transcripts de los equipos) e inventarios locales
+ansible/artifacts/
+ansible/env/
+ansible/inventory/
+device_ssh_keys/
+
+# Bases locales
+*.db
+*.sqlite
+*.sqlite3
+
+# Entornos y cachés
+venv/
+.venv/
+__pycache__/
+*.pyc
+.pytest_cache/
+.mypy_cache/
+.ruff_cache/
+.coverage
+htmlcov/
+
+# Tests y control de versiones
+tests/
+.git/
+.gitignore
+.dockerignore
